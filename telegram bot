@@ -1,17 +1,21 @@
 import random
+import telebot
+
+# Initialize the Telegram Bot
+bot = telebot.TeleBot('5984714799:AAEicU3PBK3VvQmaTIfk46eanuBZU0WUOvc')
 
 # List of suits
 suits = ['Hearts', 'Tiles', 'Pikes', 'Clovers']
 
 # List of ranks
-ranks = ['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King', 'Ace']
+ranks = ['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+         'Jack', 'Queen', 'King', 'Ace']
 
 # Dictionary mapping ranks to values
 values = {'Two': 2, 'Three': 3, 'Four': 4, 'Five': 5, 'Six': 6, 'Seven': 7, 'Eight': 8, 'Nine': 9, 'Ten': 10,
-          'Jack': 10,
-          'Queen': 10, 'King': 10, 'Ace': 11}
+          'Jack': 10, 'Queen': 10, 'King': 10, 'Ace': 11}
 
-playing = True
+playing = False
 
 
 class Card:
@@ -24,7 +28,6 @@ class Card:
 
 
 class Deck:
-
     def __init__(self):
         self.deck = []  # Empty at the beginning
         for suit in suits:  # make a deck of card
@@ -43,6 +46,7 @@ class Deck:
         for card in self.deck:
             deck_comp += '\n ' + card.__str__()  # add each Card object's print string
         return 'The deck has:' + deck_comp
+
 
 class Hand:
     def __init__(self):
@@ -63,7 +67,6 @@ class Hand:
 
 
 class Balance:
-
     def __init__(self, total=1000):
         self.total = total  # This can be set to a default value or supplied by a user input
         self.bet = 0
@@ -76,89 +79,25 @@ class Balance:
 
 
 def take_bet(balance):
-    while True:
-        try:
-            balance.bet = int(input('How many balance would you like to bet? '))
-        except ValueError:
-            print('Sorry, a bet must be an integer!')
+    msg = bot.send_message(chat_id, 'How many balance would you like to bet?')
+    bot.register_next_step_handler(msg, process_bet, balance)
+
+
+def process_bet(message, balance):
+    try:
+        bet = int(message.text)
+        if bet <= balance.total:
+            balance.bet = bet
+            deal_cards()
         else:
-            if balance.bet > balance.total:
-                print("Sorry, your bet can't exceed", balance.total)
-            else:
-                break
+            msg = bot.send_message(chat_id, "Sorry, your bet can't exceed your total balance of " + str(balance.total))
+            bot.register_next_step_handler(msg, process_bet, balance)
+    except ValueError:
+        msg = bot.send_message(chat_id, 'Sorry, a bet must be an integer!')
+        bot.register_next_step_handler(msg, process_bet, balance)
 
 
-def hit(deck, hand):
-    hand.add_card(deck.deal())
-    hand.adjust_for_ace()
-
-
-def hit_or_stand(deck, hand):
-    global playing  # to control an upcoming while loop
-
-    while True:
-        x = input("Would you like to Hit or Stand? Enter 'h' or 's' ")
-
-        if x[0].lower() == 'h':
-            hit(deck, hand)  # hit() function defined above
-
-        elif x[0].lower() == 's':
-            print("Player stands. Dealer is playing.")
-            playing = False
-
-        else:
-            print("Sorry, please try again.")
-            continue
-        break
-
-
-def show_some(player, dealer):
-    print("\nDealer's Hand:")
-    print(" <card hidden>")
-    print('', dealer.cards[1])
-    print("\nPlayer's Hand:", *player.cards, sep='\n ')
-
-
-def show_all(player, dealer):
-    print("\nDealer's Hand:", *dealer.cards, sep='\n ')
-    print("Dealer's Hand =", dealer.value)
-    print("\nPlayer's Hand:", *player.cards, sep='\n ')
-    print("Player's Hand =", player.value)
-
-
-def player_busts(player, dealer, balance):
-    print("Player busts!")
-    balance.lose_bet()
-
-
-def player_wins(player, dealer, balance):
-    print("Player wins!")
-    balance.win_bet()
-
-
-def dealer_busts(player, dealer, balance):
-    print("Dealer busts!")
-    balance.win_bet()
-
-
-def dealer_wins(player, dealer, balance):
-    print("Dealer wins!")
-    balance.lose_bet()
-
-
-def push(player, dealer):
-    print("Dealer and Player tie! It's a push.")
-
-
-# Print an opening statement
-print('Welcome to BlackJack!\n\
-Get as close to 21 as you can without going over!\n\
-Dealer hits until she reaches 17. Aces count as 1 or 11.')
-
-# Set up the Player's balance
-player_balance = Balance()
-while True:
-
+def deal_cards():
     # Create & shuffle the deck, deal two cards to each player
     deck = Deck()
     deck.shuffle()
@@ -171,55 +110,140 @@ while True:
     dealer_hand.add_card(deck.deal())
     dealer_hand.add_card(deck.deal())
 
-    # Prompt the Player for their bet
-    take_bet(player_balance)
-
     # Show cards (but keep one dealer card hidden)
     show_some(player_hand, dealer_hand)
 
-    while playing:  # recall this variable from our hit_or_stand function
 
-        # Prompt for Player to Hit or Stand
-        hit_or_stand(deck, player_hand)
+def hit_or_stand():
+    msg = bot.send_message(chat_id, "Would you like to Hit or Stand? Enter 'h' or 's'")
+    bot.register_next_step_handler(msg, process_hit_or_stand)
 
-        # Show cards (but keep one dealer card hidden)
+
+def process_hit_or_stand(message):
+    global playing
+
+    if message.text.lower() == 'h':
+        hit(player_hand)
         show_some(player_hand, dealer_hand)
-
-        # If player's hand exceeds 21, run player_busts() and break out of loop
         if player_hand.value > 21:
-            player_busts(player_hand, dealer_hand, player_balance)
-            break
-
-    # If Player hasn't busted, play Dealer's hand until Dealer reaches 17
-    if player_hand.value <= 21:
-
-        while dealer_hand.value < 17:
-            hit(deck, dealer_hand)
-
-            # Show all cards
-        show_all(player_hand, dealer_hand)
-
-        # Run different winning scenarios
-        if dealer_hand.value > 21:
-            dealer_busts(player_hand, dealer_hand, player_balance)
-
-        elif dealer_hand.value > player_hand.value:
-            dealer_wins(player_hand, dealer_hand, player_balance)
-
-        elif dealer_hand.value < player_hand.value:
-            player_wins(player_hand, dealer_hand, player_balance)
-
+            player_busts()
+            playing = False
+            end_game()
         else:
-            push(player_hand, dealer_hand)
-            # Inform Player of their chips total
-    print("\nPlayer's winnings stand at", player_balance.total)
-
-    # Ask to play again
-    new_game = input("Would you like to play another hand? Enter 'y' or 'n' ")
-
-    if new_game[0].lower() == 'y':
-        playing = True
-        continue
+            hit_or_stand()
+    elif message.text.lower() == 's':
+        print("Player stands. Dealer is playing.")
+        playing = False
+        dealer_play()
     else:
-        print("Thanks for playing!")
-        break
+        msg = bot.send_message(chat_id, "Sorry, please try again.")
+        bot.register_next_step_handler(msg, process_hit_or_stand)
+
+
+def hit(hand):
+    hand.add_card(deck.deal())
+    hand.adjust_for_ace()
+
+
+def show_some(player, dealer):
+    msg = "\nDealer's Hand:\n"
+    msg += " <card hidden>\n"
+    msg += dealer.cards[1].__str__() + "\n"
+    msg += "\nPlayer's Hand:\n"
+    for card in player.cards:
+        msg += card.__str__() + "\n"
+    bot.send_message(chat_id, msg)
+
+
+def show_all(player, dealer):
+    msg = "\nDealer's Hand:\n"
+    for card in dealer.cards:
+        msg += card.__str__() + "\n"
+    msg += "Dealer's Hand = " + str(dealer.value) + "\n"
+    msg += "\nPlayer's Hand:\n"
+    for card in player.cards:
+        msg += card.__str__() + "\n"
+    msg += "Player's Hand = " + str(player.value) + "\n"
+    bot.send_message(chat_id, msg)
+
+
+def player_busts():
+    bot.send_message(chat_id, "Player busts!")
+
+
+def player_wins():
+    bot.send_message(chat_id, "Player wins!")
+
+
+def dealer_busts():
+    bot.send_message(chat_id, "Dealer busts!")
+
+
+def dealer_wins():
+    bot.send_message(chat_id, "Dealer wins!")
+
+
+def push():
+    bot.send_message(chat_id, "Dealer and Player tie! It's a push.")
+
+
+def dealer_play():
+    while dealer_hand.value < 17:
+        hit(dealer_hand)
+    show_all(player_hand, dealer_hand)
+    determine_winner()
+
+
+def determine_winner():
+    if dealer_hand.value > 21:
+        dealer_busts()
+        player_balance.win_bet()
+    elif dealer_hand.value > player_hand.value:
+        dealer_wins()
+        player_balance.lose_bet()
+    elif dealer_hand.value < player_hand.value:
+        player_wins()
+        player_balance.win_bet()
+    else:
+        push()
+    end_game()
+
+
+def end_game():
+    bot.send_message(chat_id, "\nPlayer's winnings stand at " + str(player_balance.total))
+
+    keyboard = telebot.types.ReplyKeyboardMarkup(True, False)
+    keyboard.row('/start', '/quit')
+    msg = bot.send_message(chat_id, "Would you like to play another hand?", reply_markup=keyboard)
+    bot.register_next_step_handler(msg, process_restart)
+
+
+def process_restart(message):
+    if message.text.lower() == '/start':
+        start_game()
+    elif message.text.lower() == '/quit':
+        bot.send_message(chat_id, "Thanks for playing!")
+    else:
+        msg = bot.send_message(chat_id, "Invalid choice. Would you like to play another hand?")
+        bot.register_next_step_handler(msg, process_restart)
+
+
+@bot.message_handler(commands=['start'])
+def start_game(message):
+    global chat_id, player_balance, playing, player_hand, dealer_hand, deck
+    chat_id = message.chat.id
+    playing = True
+    player_balance = Balance()
+    bot.send_message(chat_id, 'Welcome to BlackJack!\n'
+                              'Get as close to 21 as you can without going over!\n'
+                              'Dealer hits until she reaches 17. Aces count as 1 or 11.')
+    take_bet(player_balance)
+
+
+@bot.message_handler(func=lambda message: True)
+def handle_all_other_messages(message):
+    bot.reply_to(message, "Invalid command. Type '/start' to start the game.")
+
+
+# Start the Telegram Bot
+bot.polling()
