@@ -5,7 +5,7 @@ import telebot
 bot = telebot.TeleBot('5984714799:AAEicU3PBK3VvQmaTIfk46eanuBZU0WUOvc')
 
 # List of suits
-suits = ['Hearts', 'Tiles', 'Pikes', 'Clovers']
+suits = ['♥️', '♦️', '♠️', '♣️']
 
 # List of ranks
 ranks = ['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King', 'Ace']
@@ -100,6 +100,9 @@ def process_bet(message, balance):
         if balance.bet > balance.total:
             msg = bot.reply_to(message, "Sorry, your bet can't exceed " + str(balance.total))
             bot.register_next_step_handler(msg, process_bet, balance)
+        elif balance.bet < 0:
+            msg = bot.reply_to(message, "Sorry, your bet can't be less then 0 ")
+            bot.register_next_step_handler(msg, process_bet, balance)
         else:
             # Show cards (but keep one dealer card hidden)
             show_some(player_hand, dealer_hand)
@@ -154,6 +157,7 @@ def show_all(player, dealer):
 
 
 def player_busts(player, dealer, balance):
+    bot.send_message(chat_id, "Player's Hand = " + str(player.value))
     bot.send_message(chat_id, "Player busts!")
     balance.lose_bet()
     end_game(balance)
@@ -250,7 +254,7 @@ def handle_start(message):
 def play_game(message):
     start_game()
 
-@bot.message_handler(commands=['bal', 'balance'])
+@bot.message_handler(commands=['bal', 'balance','money'])
 def show_balance(message):
     bot.send_message(chat_id, str(player_balance.total))
 
