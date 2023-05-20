@@ -139,23 +139,18 @@ def process_hit_or_stand(message, deck, hand):
 
 
 def show_some(player, dealer):
-    bot.send_message(chat_id, "\nDealer's Hand:")
-    bot.send_message(chat_id, " <card hidden>")
-    bot.send_message(chat_id, str(dealer.cards[1]))
-    bot.send_message(chat_id, "\nPlayer's Hand:")
-    for card in player.cards:
-        bot.send_message(chat_id, str(card))
+    bot.send_message(chat_id, f"\nDealer's Hand: <card hidden> " + ', '.join([f"{i}" for i in dealer.cards[1:]]))
+
+    bot.send_message(chat_id, f"\nPlayer's Hand: " + ', '.join([f"{i}" for i in player.cards]))
 
 
 def show_all(player, dealer):
-    bot.send_message(chat_id, "\nDealer's Hand:")
-    for card in dealer.cards:
-        bot.send_message(chat_id, str(card))
+    bot.send_message(chat_id, f"\nDealer's Hand: " + ', '.join([f"{i}" for i in dealer.cards]))
+
     bot.send_message(chat_id, "Dealer's Hand = " + str(dealer.value))
-    bot.send_message(chat_id, "\nPlayer's Hand:")
-    for card in player.cards:
-        bot.send_message(chat_id, str(card))
+    bot.send_message(chat_id, f"\nPlayer's Hand: " + ', '.join([f"{i}" for i in player.cards]))
     bot.send_message(chat_id, "Player's Hand = " + str(player.value))
+
 
 
 def player_busts(player, dealer, balance):
@@ -205,8 +200,8 @@ def play_dealer_hand(deck, dealer, player, balance):
 
 def end_game(balance):
     bot.send_message(chat_id, "\nPlayer's winnings stand at " + str(balance.total))
-    msg = bot.send_message(chat_id, "Would you like to play another hand? (Yes/No)")
-    bot.register_next_step_handler(msg, process_end_game)
+    #msg = bot.send_message(chat_id, "Would you like to play another hand? (Yes/No)")
+    #bot.register_next_step_handler(msg, process_end_game)
 
 
 def process_end_game(message):
@@ -238,7 +233,7 @@ def start_game():
     take_bet(player_balance)
 
 
-@bot.message_handler(commands=['start', 'play'])
+@bot.message_handler(commands=['start'])
 def handle_start(message):
     global chat_id, player_balance, playing
     chat_id = message.chat.id
@@ -249,7 +244,14 @@ def handle_start(message):
                               "Get as close to 21 as you can without going over!\n"
                               "Dealer hits until she reaches 17. Aces count as 1 or 11.")
 
+    #start_game()
+
+@bot.message_handler(commands=['play'])
+def play_game(message):
     start_game()
 
+@bot.message_handler(commands=['bal', 'balance'])
+def show_balance(message):
+    bot.send_message(chat_id, str(player_balance.total))
 
 bot.polling()
