@@ -155,30 +155,30 @@ def player_busts(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Player's Hand = " + str(player.value))
     bot.send_message(chat_id, "Player busts!")
     balance.lose_bet()
-    end_game(balance, chat_id)
+    #end_game(balance, chat_id)
 
 
 def player_wins(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Player wins!")
     balance.win_bet()
-    end_game(balance, chat_id)
+    #end_game(balance, chat_id)
 
 
 def dealer_busts(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Dealer busts!")
     balance.win_bet()
-    end_game(balance, chat_id)
+    #end_game(balance, chat_id)
 
 
 def dealer_wins(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Dealer wins!")
     balance.lose_bet()
-    end_game(balance, chat_id)
+    #end_game(balance, chat_id)
 
 
 def push(player, dealer, chat_id):
     bot.send_message(chat_id, "Dealer and Player tie! It's a push.")
-    end_game(game_states[chat_id]['player_balance'], chat_id)
+    #end_game(game_states[chat_id]['player_balance'], chat_id)
 
 
 def play_dealer_hand(deck, dealer, player, balance, chat_id):
@@ -213,7 +213,7 @@ def process_end_game(message, chat_id):
         bot.register_next_step_handler(msg, process_end_game, chat_id)
 
 
-def start_game(chat_id):
+def start_game(chat_id, balance):
     global playing
 
     # Create & shuffle the deck, deal two cards to each player
@@ -232,7 +232,7 @@ def start_game(chat_id):
         'player_hand': player_hand,
         'dealer_hand': dealer_hand,
         'deck': deck,
-        'player_balance': Balance()
+        'player_balance': balance
     }
 
     # Prompt the Player for their bet
@@ -244,7 +244,7 @@ def handle_start(message):
     global chat_id, game_states
     chat_id = message.chat.id
     game_states[chat_id] = {
-        'player_balance': None
+        'player_balance': Balance()
     }
     bot.send_message(chat_id, "Welcome to BlackJack!\n"
                               "Get as close to 21 as you can without going over!\n"
@@ -254,7 +254,12 @@ def handle_start(message):
 
     @bot.message_handler(commands=['play'])
     def play_game(message):
-        start_game(message.chat.id)
+        chat_id = message.chat.id
+        if chat_id in game_states:
+            balance = game_states[chat_id]['player_balance']
+            start_game(message.chat.id, balance)
+        else:
+            pass
 
     @bot.message_handler(commands=['bal', 'balance', 'money'])
     def show_balance(message):
