@@ -92,17 +92,21 @@ def process_bet(message, chat_id, balance):
     except ValueError:
         msg = bot.reply_to(message, 'Sorry, a bet must be an integer!')
         bot.register_next_step_handler(msg, process_bet, chat_id, balance)
+        add_log(chat_id, "incorrect bet input type")
     else:
         if balance.bet > balance.total:
             msg = bot.reply_to(message, "Sorry, your bet can't exceed " + str(balance.total))
             bot.register_next_step_handler(msg, process_bet, chat_id, balance)
+            add_log(chat_id, "bet exceed balance")
         elif balance.bet < 0:
             msg = bot.reply_to(message, "Sorry, your bet can't be less than 0")
             bot.register_next_step_handler(msg, process_bet, chat_id, balance)
+            add_log(chat_id, "bet less then 0")
         else:
             game_state = game_states[chat_id]
             # Show cards (but keep one dealer card hidden)
             show_some(game_state['player_hand'], game_state['dealer_hand'], chat_id)
+            add_log(chat_id, "player see the first hands and bet " + message.text)
             hit_or_stand(game_state['deck'], game_state['player_hand'], chat_id)
 
 
@@ -124,6 +128,7 @@ def process_hit_or_stand(message, deck, hand, chat_id):
     global playing
 
     if message.text.lower() == 'hit':
+        add_log(chat_id, "hit")
         hit(deck, hand)  # hit() function defined above
         show_some(hand, game_states[chat_id]['dealer_hand'], chat_id)
 
@@ -133,6 +138,7 @@ def process_hit_or_stand(message, deck, hand, chat_id):
             hit_or_stand(deck, hand, chat_id)  # Ask again
 
     elif message.text.lower() == 'stand':
+        add_log(chat_id, "stand, dealer plays")
         bot.send_message(chat_id, "Player stands. Dealer is playing.")
         playing = False
         play_dealer_hand(deck, game_states[chat_id]['dealer_hand'], hand,
@@ -158,6 +164,7 @@ def player_busts(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Player busts!")
     balance.lose_bet()
     change_balance_in_db(balance, chat_id)
+    add_log(chat_id, "player busts")
     # end_game(balance, chat_id)
 
 
@@ -165,6 +172,7 @@ def player_wins(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Player wins!")
     balance.win_bet()
     change_balance_in_db(balance, chat_id)
+    add_log(chat_id, "player wins")
     # end_game(balance, chat_id)
 
 
@@ -172,6 +180,7 @@ def dealer_busts(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Dealer busts!")
     balance.win_bet()
     change_balance_in_db(balance, chat_id)
+    add_log(chat_id, "dealer busts")
     # end_game(balance, chat_id)
 
 
@@ -179,11 +188,13 @@ def dealer_wins(player, dealer, balance, chat_id):
     bot.send_message(chat_id, "Dealer wins!")
     balance.lose_bet()
     change_balance_in_db(balance, chat_id)
+    add_log(chat_id, "dealer wins")
     # end_game(balance, chat_id)
 
 
 def push(player, dealer, chat_id):
     bot.send_message(chat_id, "Dealer and Player tie! It's a push.")
+    add_log(chat_id, "push")
     # end_game(game_states[chat_id]['player_balance'], chat_id)
 
 
@@ -197,6 +208,7 @@ def change_balance_in_db(balance, chat_id):
     con.commit()
     cur.close()
     con.close()
+    add_log(chat_id, "balance was successfully changed to " + str(balance.total))
 
 
 def play_dealer_hand(deck, dealer, player, balance, chat_id):
@@ -229,6 +241,17 @@ def process_end_game(message, chat_id):
     else:
         msg = bot.send_message(chat_id, "Invalid input. Please enter 'Yes' or 'No'")
         bot.register_next_step_handler(msg, process_end_game, chat_id)
+
+
+def add_log(chat_id, act):
+    con = sqlite3.connect('bjdb.sql')
+    cur = con.cursor()
+
+    cur.execute('INSERT INTO logs (chat_id, act) VALUES("%i", "%s")'
+                % (chat_id, act))
+    con.commit()
+    cur.close()
+    con.close()
 
 
 def start_game(chat_id, balance):
@@ -269,13 +292,19 @@ def handle_start(message):
         cur = con.cursor()
 
         cur.execute('CREATE TABLE IF NOT EXISTS '
-                    'users (id INTEGER auto_increment primary key, chat_id INTEGER, balance INTEGER)')
+                    'logs (id INTEGER primary key, chat_id INTEGER, act VARCHAR(150))')
 
-        cur.execute('INSERT INTO users (chat_id, balance) VALUES("%i", "%i")'
-                    % (chat_id, game_states[chat_id]['player_balance'].total))
+        cur.execute('CREATE TABLE IF NOT EXISTS '
+                    'users (id INTEGER primary key, chat_id INTEGER, name VARCHAR(50), balance INTEGER)')
+
+        cur.execute('INSERT INTO users (chat_id, name, balance) VALUES("%i", "%s", "%i")'
+                    % (chat_id, message.from_user.full_name, game_states[chat_id]['player_balance'].total))
         con.commit()
         cur.close()
         con.close()
+        add_log(chat_id, "registered")
+    else:
+        add_log(chat_id, "restart the bot")
 
     bot.send_message(chat_id, "Welcome to BlackJack!\n"
                               "Get as close to 21 as you can without going over!\n"
@@ -291,8 +320,10 @@ def play_game(message):
     if chat_id in game_states:
         balance = game_states[chat_id]['player_balance']
         start_game(message.chat.id, balance)
+        add_log(chat_id, "start playing the game")
     else:
         bot.send_message(chat_id, "You should to write /start first")
+        add_log(chat_id, "not registered, tried to play the game")
 
 
 @bot.message_handler(commands=['bal', 'balance', 'money'])
@@ -301,6 +332,9 @@ def show_balance(message):
     if chat_id in game_states:
         balance = game_states[chat_id]['player_balance']
         bot.send_message(chat_id, str(balance.total))
+        add_log(chat_id, "check balance ")
+    else:
+        add_log(chat_id, "not registered, check balance")
 
 
 @bot.message_handler(commands=['get_from_database'])
@@ -316,6 +350,7 @@ def list_from_db(message):
     cur.close()
     con.close()
     bot.send_message(message.chat.id, "Data base successfully insert to list")
+    add_log(chat_id, "insert base to the list")
 
 
 @bot.message_handler(commands=["help"])
@@ -356,12 +391,14 @@ def rules_input(message):
                                      "and the closest to 21 wins.\n"
                                      "12.The game concludes, and the player's winnings are "
                                      "determined based on the outcome.")
+    add_log(chat_id, "Help menu")
 
 
 @bot.message_handler()
 def any_text(message):
     if (message.text == 'qazxsw12'):
         bot.send_message(message.chat.id, "Okaaayyyy, byeee")
+        add_log(chat_id, "Deactivated the bot")
         bot.stop_polling()
     else:
         bot.send_message(message.chat.id, "You should to write /start to start the bot")
