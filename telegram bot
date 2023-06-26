@@ -144,6 +144,11 @@ def process_hit_or_stand(message, deck, hand, chat_id):
         play_dealer_hand(deck, game_states[chat_id]['dealer_hand'], hand,
                          game_states[chat_id]['player_balance'], chat_id)
 
+    else:
+        add_log(chat_id, "Incorrect input of hit or stand")
+        bot.send_message(chat_id, "Incorrect input")
+        hit_or_stand(deck, hand, chat_id)
+
 
 def show_some(player, dealer, chat_id):
     bot.send_message(chat_id, f"\nDealer's Hand: <card hidden> " + ', '.join([f"{i}" for i in dealer.cards[1:]]))
