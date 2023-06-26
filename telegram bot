@@ -251,7 +251,10 @@ def process_end_game(message, chat_id):
 def add_log(chat_id, act):
     con = sqlite3.connect('bjdb.sql')
     cur = con.cursor()
-
+    
+    cur.execute('CREATE TABLE IF NOT EXISTS '
+                'logs (id INTEGER primary key, chat_id INTEGER, act VARCHAR(150))')
+    
     cur.execute('INSERT INTO logs (chat_id, act) VALUES("%i", "%s")'
                 % (chat_id, act))
     con.commit()
@@ -295,9 +298,6 @@ def handle_start(message):
         }
         con = sqlite3.connect('bjdb.sql')
         cur = con.cursor()
-
-        cur.execute('CREATE TABLE IF NOT EXISTS '
-                    'logs (id INTEGER primary key, chat_id INTEGER, act VARCHAR(150))')
 
         cur.execute('CREATE TABLE IF NOT EXISTS '
                     'users (id INTEGER primary key, chat_id INTEGER, name VARCHAR(50), balance INTEGER)')
